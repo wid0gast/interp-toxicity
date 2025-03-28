@@ -450,6 +450,17 @@ files = [
 six = ">=1.4.0"
 
 [[package]]
+name = "eindex"
+version = "0.1.0"
+description = "A concept of multidimensional indexing for tensors"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "eindex-0.1.0-py3-none-any.whl", hash = "sha256:a806489c30bc2f6ae61417763bc062780d3816b69716c6a7e2419d9c6c80c7c1"},
+    {file = "eindex-0.1.0.tar.gz", hash = "sha256:f7225c5e478663931a2ccf25adfff932fd80c942e7c507ca54b709f1b1524954"},
+]
+
+[[package]]
 name = "einops"
 version = "0.8.1"
 description = "A new flavour of deep learning operations"
@@ -1405,8 +1416,8 @@ files = [
 [package.dependencies]
 numpy = [
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
-    {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
     {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+    {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -3074,4 +3085,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<4.0"
-content-hash = "c3ccaddb3442809989b41271bf2343ae72c2f7fc3f6161fca80677403468025b"
+content-hash = "b1c299501ba51b67004ffc0c9ff57609a083ce03f3ba4197f5a943ddd97c32ca"
