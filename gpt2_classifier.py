@@ -38,7 +38,6 @@ from transformers import AutoTokenizer
 from transformer_lens import HookedTransformer
 import os
 import json
-import ipdb
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = "7"
 
@@ -76,7 +75,7 @@ train_dataloader = DataLoader(JigsawDataset(dataset["train"]), batch_size=batch_
 val_dataloader = DataLoader(JigsawDataset(dataset["test"]), batch_size=batch_size, shuffle=False)
 
 
-device = "cuda:7" if torch.cuda.is_available() else "cpu"
+device = "cuda:1" if torch.cuda.is_available() else "cpu"
 
 
 # Load GPT-2 into transformer_lens
@@ -218,20 +217,21 @@ def get_ablation_scores(
 print('patching')
 ablation_scores = torch.zeros(12,12, device=device)
 base_preds = []
-ablated_preds = {layer: {head : [] for head in classifier.transformer.cfg.n_heads} for layer in classifier.transformer.cfg.n_layers}
-for i, batch in tqdm(enumerate(val_dataloader)):
+ablated_preds = {layer: {head : [] for head in range(classifier.transformer.cfg.n_heads)} for layer in range(classifier.transformer.cfg.n_layers)}
+for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
     input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
     tmp_ablation_scores, base_pred, ablated_pred_list = get_ablation_scores(classifier, input_ids, labels, head_zero_ablation_hook)
     base_preds += base_pred.tolist()
-    for layer in classifier.transformer.cfg.n_layers:
-        for head in classifier.transformers.cfg.n_heads:
+    for layer in range(classifier.transformer.cfg.n_layers):
+        for head in range(classifier.transformer.cfg.n_heads):
             ablated_preds[layer][head] += ablated_pred_list[layer][head].tolist()
     ablation_scores += tmp_ablation_scores
     if i % 16 == 0:
         torch.save(ablation_scores / ((i+1) * batch_size), "ablation_scores.pth")
-
 with open('ablated_preds.json', 'w') as f:
     json.dump(ablated_preds, f)
+with open('base_preds.json', 'w') as f:
+    json.dump(base_preds, f)
 
 ablation_scores /= len(val_dataloader)
 torch.save(ablation_scores, "ablation_scores.pth")
