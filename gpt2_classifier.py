@@ -13,7 +13,7 @@ import numpy as np
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
-import eindex
+from eindex import eindex
 # from IPython.display import display
 from jaxtyping import Float, Int
 from torch import Tensor
@@ -37,8 +37,10 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 from transformer_lens import HookedTransformer
 import os
+import json
+import ipdb
 
-os.environ['CUDA_VISIBLE_DEVICES'] = "1,2,3"
+# os.environ['CUDA_VISIBLE_DEVICES'] = "7"
 
 
 dataset = load_dataset("csv", data_files={"train": 'jigsaw/train.csv', "test": 'jigsaw/test.csv'})
@@ -69,15 +71,15 @@ class JigsawDataset(Dataset):
         return {key: self.dataset[idx][key] for key in ["input_ids", "labels"]}
 
 # Create PyTorch DataLoaders
-batch_size = 256
+batch_size = 64
 train_dataloader = DataLoader(JigsawDataset(dataset["train"]), batch_size=batch_size, shuffle=True)
 val_dataloader = DataLoader(JigsawDataset(dataset["test"]), batch_size=batch_size, shuffle=False)
 
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda:7" if torch.cuda.is_available() else "cpu"
+
 
 # Load GPT-2 into transformer_lens
-model = HookedTransformer.from_pretrained("gpt2", device=device)
 
 class GPT2Classifier(nn.Module):
     def __init__(self, transformer, num_classes=2):
@@ -96,66 +98,79 @@ class GPT2Classifier(nn.Module):
         return logits
 
     def run_with_hooks(self, tokens, fwd_hooks):
-        logits = self.transformer.run_with_hooks(tokens, fwd_hooks=fwd_hooks)
-        return self.classifier(logits)
+        with torch.no_grad():
+            with self.transformer.hooks(fwd_hooks=fwd_hooks):
+                _, cache = self.transformer.run_with_cache(tokens)
+            hidden_states = cache["resid_post", -1] 
+            logits = self.classifier(hidden_states[:, -1, :])
+        return logits
 
 
 # Initialize model and optimizer
 num_classes = 2
-classifier = GPT2Classifier(model, num_classes).to(device)
+model = HookedTransformer.from_pretrained("gpt2", device=device)
+model.load_state_dict(torch.load("finetuned_gpt2/transformer.pth", map_location=device))
+model.to(device)
+classifier = GPT2Classifier(model, num_classes)
+classifier.load_state_dict(torch.load("finetuned_gpt2/classifier.pth", map_location=device))
+classifier.to(device)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(classifier.parameters(), lr=5e-5)
+# optimizer = optim.Adam(classifier.parameters(), lr=5e-5)
 
-# Training loop
-num_epochs = 1
-best_epoch = -1
-best_loss = 100
+# # Training loop
+# num_epochs = 10
+# best_epoch = -1
+# best_loss = 100
 
-for epoch in num_epochs:
-    print(f"Epoch {epoch+1}")
-    classifier.train()
-    total_train_loss = 0
-    total_val_loss = 0
-    correct_preds = 0
+# for epoch in range(num_epochs):
+#     print(f"Epoch {epoch+1}")
+#     classifier.train()
+#     total_train_loss = 0
+#     total_val_loss = 0
+#     correct_preds = 0
 
-    for batch in tqdm(train_dataloader):
-        input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
+#     for batch in tqdm(train_dataloader):
+#         input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
 
-        optimizer.zero_grad()
-        logits = classifier(input_ids)
-        loss = criterion(logits, labels)
-        loss.backward()
-        optimizer.step()
+#         optimizer.zero_grad()
+#         logits = classifier(input_ids)
+#         loss = criterion(logits, labels)
+#         loss.backward()
+#         optimizer.step()
 
-        total_train_loss += loss.item()
-    classifier.eval()
-    for batch in val_dataloader:
-        input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
+#         total_train_loss += loss.item()
+#     classifier.eval()
+#     for batch in val_dataloader:
+#         input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
 
-        logits = classifier(input_ids)
-        loss = criterion(logits, labels)
+#         logits = classifier(input_ids)
+#         loss = criterion(logits, labels)
 
-        total_val_loss += loss.item()
-        correct_preds += sum(logits.argmax(dim=1) == labels).item()
+#         total_val_loss += loss.item()
+#         correct_preds += sum(logits.argmax(dim=1) == labels).item()
 
-    avg_train_loss = total_train_loss / len(train_dataloader)
-    avg_val_loss = total_val_loss / len(train_dataloader)
-    print(f"Epoch {epoch+1}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss}")
-    save_dir = "finetuned_gpt2"
-    if avg_val_loss < best_loss:
-        best_loss = avg_val_loss
-        best_epoch = epoch
-        torch.save(classifier.state_dict(), os.path.join(save_dir, f"classifier.pth"))
-        torch.save(model.state_dict(), os.path.join(save_dir, f"transformer.pth"))
+#     avg_train_loss = total_train_loss / len(train_dataloader)
+#     avg_val_loss = total_val_loss / len(train_dataloader)
+#     print(f"Epoch {epoch+1}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss}")
+#     save_dir = "finetuned_gpt2"
+#     if avg_val_loss < best_loss:
+#         best_loss = avg_val_loss
+#         best_epoch = epoch
+#         torch.save(classifier.state_dict(), os.path.join(save_dir, f"classifier.pth"))
+#         torch.save(model.state_dict(), os.path.join(save_dir, f"transformer.pth"))
 
-def get_log_probs(
-    logits: Float[Tensor, "batch posn d_vocab"], tokens: Int[Tensor, "batch posn"]
-) -> Float[Tensor, "batch posn-1"]:
-    logprobs = logits.log_softmax(dim=-1)
-    # We want to get logprobs[b, s, tokens[b, s+1]], in eindex syntax this looks like:
-    correct_logprobs = eindex(logprobs, tokens, "b s [b s+1]")
-    return correct_logprobs
+
+
+
+# def get_log_probs(
+#     logits: Float[Tensor, "batch posn d_vocab"], tokens: Int[Tensor, "batch posn"]
+# ) -> Float[Tensor, "batch posn-1"]:
+#     logprobs = logits.log_softmax(dim=-1)
+#     # We want to get logprobs[b, s, tokens[b, s+1]], in eindex syntax this looks like:
+#     print(logits.shape, logprobs.shape, tokens.shape)
+#     correct_logprobs = eindex(logprobs, tokens, "b s [b s+1]")
+#     return correct_logprobs
 
 def head_zero_ablation_hook(
     z: Float[Tensor, "batch seq n_heads d_head"],
@@ -167,6 +182,7 @@ def head_zero_ablation_hook(
 def get_ablation_scores(
     classifier: GPT2Classifier,
     tokens: Int[Tensor, "batch seq"],
+    labels,
     ablation_function: Callable = head_zero_ablation_hook,
 ) -> Float[Tensor, "n_layers n_heads"]:
     """
@@ -175,34 +191,47 @@ def get_ablation_scores(
     """
     # Initialize an object to store the ablation scores
     ablation_scores = t.zeros((classifier.transformer.cfg.n_layers, classifier.transformer.cfg.n_heads), device=classifier.transformer.cfg.device)
-
+    ablated_pred_list = {}
     # Calculating loss without any ablation, to act as a baseline
     classifier.transformer.reset_hooks()
-    seq_len = (tokens.shape[1] - 1) // 2
-    logits = classifier(tokens, return_type="logits")
-    loss_no_ablation = -get_log_probs(logits, tokens)[:, -(seq_len - 1) :].mean()
+    logits = classifier(tokens)
+    preds = logits.argmax(dim=-1)
+    loss_no_ablation = criterion(logits, labels)
 
-    for layer in tqdm(range(classifier.transformer.cfg.n_layers)):
+    for layer in range(classifier.transformer.cfg.n_layers):
+        ablated_pred_list[layer] = {}
         for head in range(classifier.transformer.cfg.n_heads):
             # Use functools.partial to create a temporary hook function with the head number fixed
             temp_hook_fn = functools.partial(ablation_function, head_index_to_ablate=head)
             # Run the model with the ablation hook
             ablated_logits = classifier.run_with_hooks(tokens, fwd_hooks=[(utils.get_act_name("z", layer), temp_hook_fn)])
             # Calculate the loss difference (= negative correct logprobs), only on the last `seq_len` tokens
-            loss = -get_log_probs(ablated_logits.log_softmax(-1), tokens)[:, -(seq_len - 1) :].mean()
+            # loss = -get_log_probs(ablated_logits.log_softmax(-1), tokens)[:, -(seq_len - 1) :].mean()
+            loss = criterion(ablated_logits, labels)
             # Store the result, subtracting the clean loss so that a value of zero means no change in loss
             ablation_scores[layer, head] = loss - loss_no_ablation
+            ablated_preds = ablated_logits.argmax(dim=-1)
+            ablated_pred_list[layer][head] = ablated_preds
 
-    return ablation_scores
+    return ablation_scores, preds, ablated_pred_list
 
-tokens = dataset['test']['input_ids'][:100]
-ablation_scores = get_ablation_scores(classifier, tokens, head_zero_ablation_hook)
-torch.save(ablation_scores, "ablation_scores")
-imshow(
-    ablation_scores,
-    labels={"x": "Head", "y": "Layer", "color": "Logit diff"},
-    title="Loss Difference After Ablating Heads",
-    text_auto=".2f",
-    width=900,
-    height=350,
-)
+print('patching')
+ablation_scores = torch.zeros(12,12, device=device)
+base_preds = []
+ablated_preds = {layer: {head : [] for head in classifier.transformer.cfg.n_heads} for layer in classifier.transformer.cfg.n_layers}
+for i, batch in tqdm(enumerate(val_dataloader)):
+    input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
+    tmp_ablation_scores, base_pred, ablated_pred_list = get_ablation_scores(classifier, input_ids, labels, head_zero_ablation_hook)
+    base_preds += base_pred.tolist()
+    for layer in classifier.transformer.cfg.n_layers:
+        for head in classifier.transformers.cfg.n_heads:
+            ablated_preds[layer][head] += ablated_pred_list[layer][head].tolist()
+    ablation_scores += tmp_ablation_scores
+    if i % 16 == 0:
+        torch.save(ablation_scores / ((i+1) * batch_size), "ablation_scores.pth")
+
+with open('ablated_preds.json', 'w') as f:
+    json.dump(ablated_preds, f)
+
+ablation_scores /= len(val_dataloader)
+torch.save(ablation_scores, "ablation_scores.pth")

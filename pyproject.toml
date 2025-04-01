@@ -30,7 +30,8 @@ typing-extensions="*"
 wandb=">=0.13.5"
 typeguard = "^4.2"
 transformers-stream-generator = "^0.0.5"
-eindex = "^0.1.0"
+plotly-utils = "^0.0.3"
+eindex-callum = "^0.1.2"
 
 [build-system]
 requires = ["poetry-core"]
