@@ -21,7 +21,7 @@ einops=">=0.6.0"
 fancy-einsum=">=0.0.3"
 jaxtyping=">=0.2.11"
 pandas=">=1.1.5"
-python=">=3.8,<4.0"
+python=">=3.6,<4.0"
 rich=">=12.6.0"
 sentencepiece="*"
 tqdm=">=4.64.1"
@@ -33,6 +33,7 @@ transformers-stream-generator = "^0.0.5"
 plotly-utils = "^0.0.3"
 eindex-callum = "^0.1.2"
 hf-xet = "^1.0.3"
+nltk = "^3.9.1"
 
 [build-system]
 requires = ["poetry-core"]

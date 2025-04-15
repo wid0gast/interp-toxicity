@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: ESIM
+Version: 1.0
+Summary: Implementation in Pytorch of the ESIM model for NLI
+Home-page: https://github.com/coetaur0/ESIM
+Author: Aurelien Coet
+Author-email: aurelien.coet19@gmail.com
+License: Apache 2
+Requires-Dist: numpy
+Requires-Dist: nltk
+Requires-Dist: matplotlib
+Requires-Dist: tqdm
+Requires-Dist: torch
