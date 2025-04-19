@@ -34,6 +34,8 @@ plotly-utils = "^0.0.3"
 eindex-callum = "^0.1.2"
 hf-xet = "^1.0.3"
 nltk = "^3.9.1"
+ipykernel = "^6.29.5"
+seaborn = "^0.13.2"
 
 [build-system]
 requires = ["poetry-core"]
