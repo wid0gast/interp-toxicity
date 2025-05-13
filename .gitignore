@@ -1,6 +1,8 @@
 finetuned_gpt2
 finetuned_bert
+bert_classifier_vanilla
 
-TextFooler/textfooler
 interp-toxicity
 pattern
+
+
