@@ -1,4 +1,11 @@
 finetuned_gpt2
 finetuned_bert
 
-TextFooler/textfooler
+TextFooler/fooler
+pattern
+TextFooler/env_6
+TextFooler/env_10
+TextFooler/cache
+*/__pycache__
+*/cos_sim_counter_fitting.npy
+*/counter-fitted-vectors.txt
