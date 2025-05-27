@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,5,6,7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,5,6,7"
 import textattack
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
@@ -65,6 +65,7 @@ def get_attack(model_wrapper, attack_name):
 
 def main():
     # Parse command line arguments
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     parser = argparse.ArgumentParser(description='Run text attack with specified attack method')
     parser.add_argument('--attack_name', type=str, required=True, 
                       help='Name of the attack to use (deepword, input_reduction, pwws, or pruthi)')
@@ -78,7 +79,6 @@ def main():
     ## Attack
     # tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     # model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     # model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_1_acc_0.9372.pt', map_location=device))
     # model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
     # df = pd.read_csv('jigsaw/test.csv')
@@ -109,7 +109,6 @@ def main():
     # )
     # attacker = textattack.Attacker(attack, dataset, attack_args)
     # attacker.attack_dataset()
-
     jigsaw_aug = pd.read_csv(f"{args.attack_name}_log.csv")
     jigsaw_aug.drop(jigsaw_aug.columns.difference(["perturbed_text", "ground_truth_output"]), axis=1).to_csv(f"{args.attack_name}_jigsaw.csv", index=False)
     dataset = load_dataset("csv", data_files={f'{args.attack_name}_jigsaw.csv'})
@@ -168,10 +167,10 @@ def main():
     # Initialize model and optimizer
     num_classes = 2
     model = HookedEncoder.from_pretrained("bert-base-uncased", device=device)
-    # model.load_state_dict(torch.load("finetuned_gpt2/transformer.pth", map_location=device))
+    model.load_state_dict(torch.load("finetuned_bert/jigsaw/transformer.pth", map_location=device))
     model.to(device)
     classifier = BERTClassifier(model, num_classes)
-    # classifier.load_state_dict(torch.load("finetuned_gpt2/classifier.pth", map_location=device))
+    classifier.load_state_dict(torch.load("finetuned_bert/jigsaw/classifier.pth", map_location=device))
     classifier.to(device)
 
     criterion = nn.CrossEntropyLoss()
@@ -239,20 +238,20 @@ def main():
             for head in range(classifier.transformer.cfg.n_heads):
                 ablated_preds[layer][head] += ablated_pred_list[layer][head].tolist()
         ablation_scores += tmp_ablation_scores
-        if i % 16 == 0:
+        if i % 16 == 0 or i == len(val_dataloader) - 1:
             torch.save(ablation_scores / ((i+1) * batch_size), f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth")
-    with open(f"{args.attack_name}/bert_ablated_preds_jigsaw_perturbed.json", 'w') as f:
-        json.dump(ablated_preds, f)
-    with open(f"{args.attack_name}/bert_base_preds_jigsaw_perturbed.json", 'w') as f:
-        json.dump(base_preds, f)
+            with open(f"{args.attack_name}/bert_ablated_preds_jigsaw_perturbed.json", 'w') as f:
+                json.dump(ablated_preds, f)
+            with open(f"{args.attack_name}/bert_base_preds_jigsaw_perturbed.json", 'w') as f:
+                json.dump(base_preds, f)
 
-    ablation_scores /= len(val_dataloader)
+    ablation_scores /= len(dataset)
     torch.save(ablation_scores, f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth")
 
     ## Analysis
     ablation_scores = torch.load(f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth", map_location=torch.device('cpu'))
     ablation_scores.shape
-    tensor_np = ablation_scores.cpu().detach().numpy() * 10
+    tensor_np = ablation_scores.cpu().detach().numpy()
 
     # Plot the heatmap
     plt.figure(figsize=(8, 6))  # Adjust figure size

@@ -42,19 +42,19 @@ import json
 # os.environ['CUDA_VISIBLE_DEVICES'] = "7"
 
 
-dataset = load_dataset("csv", data_files={"train": 'jigsaw/train.csv', "test": 'jigsaw/test.csv'})
+dataset = load_dataset("csv", data_files={'input_reduction_log.csv'})
+print(len(dataset['train']))
 # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-print(tokenizer.pad_token)
 
 # Tokenization function
 def tokenize_data(example):
-    return tokenizer(example["comment_text"], padding="max_length", truncation=True, max_length=128, return_tensors="pt")
+    return tokenizer(example["original_text"], padding="max_length", truncation=True, max_length=128, return_tensors="pt")
 
 # Apply tokenization
 dataset = dataset.map(tokenize_data, batched=True)
-dataset = dataset.rename_column("toxic", "labels")  # Rename for consistency
+dataset = dataset.rename_column("ground_truth_output", "labels")  # Rename for consistency
 dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
 
@@ -71,13 +71,11 @@ class JigsawDataset(Dataset):
 
 # Create PyTorch DataLoaders
 batch_size = 64
-train_dataloader = DataLoader(JigsawDataset(dataset["train"]), batch_size=batch_size, shuffle=True)
-val_dataloader = DataLoader(JigsawDataset(dataset["test"]), batch_size=batch_size, shuffle=False)
+val_dataloader = DataLoader(JigsawDataset(dataset["train"]), batch_size=batch_size, shuffle=True)
+# val_dataloader = DataLoader(JigsawDataset(dataset["test"]), batch_size=batch_size, shuffle=False)
 
 
-device = "cuda:1" if torch.cuda.is_available() else "cpu"
-
-
+device = "cuda:6" if torch.cuda.is_available() else "cpu"
 
 class BERTClassifier(nn.Module):
     def __init__(self, transformer, num_classes=2):
@@ -104,62 +102,71 @@ class BERTClassifier(nn.Module):
         return logits
 
 
+# # Initialize model and optimizer
+# num_classes = 2
+# model = HookedEncoder.from_pretrained("bert-base-uncased", device=device)
+# # model.load_state_dict(torch.load("finetuned_gpt2/transformer.pth", map_location=device))
+# model.to(device)
+# classifier = BERTClassifier(model, num_classes)
+# # classifier.load_state_dict(torch.load("finetuned_gpt2/classifier.pth", map_location=device))
+# classifier.to(device)
+
+# criterion = nn.CrossEntropyLoss()
+# optimizer = optim.Adam(classifier.parameters(), lr=5e-5)
+
+# # Training loop
+# num_epochs = 10
+# best_epoch = -1
+# best_loss = 100
+
+# for epoch in range(num_epochs):
+#     print(f"Epoch {epoch+1}")
+#     classifier.train()
+#     total_train_loss = 0
+#     total_val_loss = 0
+#     correct_preds = 0
+
+#     for batch in tqdm(train_dataloader):
+#         input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
+
+#         optimizer.zero_grad()
+#         logits = classifier(input_ids)
+#         loss = criterion(logits, labels)
+#         loss.backward()
+#         optimizer.step()
+
+#         total_train_loss += loss.item()
+#     classifier.eval()
+#     for batch in val_dataloader:
+#         input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
+
+#         logits = classifier(input_ids)
+#         loss = criterion(logits, labels)
+
+#         total_val_loss += loss.item()
+#         correct_preds += sum(logits.argmax(dim=1) == labels).item()
+
+#     avg_train_loss = total_train_loss / len(train_dataloader)
+#     avg_val_loss = total_val_loss / len(train_dataloader)
+#     print(f"Epoch {epoch+1}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss}")
+#     save_dir = "finetuned_bert/jigsaw"
+#     if avg_val_loss < best_loss:
+#         best_loss = avg_val_loss
+#         best_epoch = epoch
+#         torch.save(classifier.state_dict(), os.path.join(save_dir, f"classifier.pth"))
+#         torch.save(model.state_dict(), os.path.join(save_dir, f"transformer.pth"))
+
+
 # Initialize model and optimizer
 num_classes = 2
 model = HookedEncoder.from_pretrained("bert-base-uncased", device=device)
-# model.load_state_dict(torch.load("finetuned_gpt2/transformer.pth", map_location=device))
+model.load_state_dict(torch.load("finetuned_bert/jigsaw/transformer.pth", map_location=device))
 model.to(device)
 classifier = BERTClassifier(model, num_classes)
-# classifier.load_state_dict(torch.load("finetuned_gpt2/classifier.pth", map_location=device))
+classifier.load_state_dict(torch.load("finetuned_bert/jigsaw/classifier.pth", map_location=device))
 classifier.to(device)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(classifier.parameters(), lr=5e-5)
-
-# Training loop
-num_epochs = 10
-best_epoch = -1
-best_loss = 100
-
-for epoch in range(num_epochs):
-    print(f"Epoch {epoch+1}")
-    classifier.train()
-    total_train_loss = 0
-    total_val_loss = 0
-    correct_preds = 0
-
-    for batch in tqdm(train_dataloader):
-        input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
-
-        optimizer.zero_grad()
-        logits = classifier(input_ids)
-        loss = criterion(logits, labels)
-        loss.backward()
-        optimizer.step()
-
-        total_train_loss += loss.item()
-    classifier.eval()
-    for batch in val_dataloader:
-        input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
-
-        logits = classifier(input_ids)
-        loss = criterion(logits, labels)
-
-        total_val_loss += loss.item()
-        correct_preds += sum(logits.argmax(dim=1) == labels).item()
-
-    avg_train_loss = total_train_loss / len(train_dataloader)
-    avg_val_loss = total_val_loss / len(train_dataloader)
-    print(f"Epoch {epoch+1}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss}")
-    save_dir = "finetuned_bert/jigsaw"
-    if avg_val_loss < best_loss:
-        best_loss = avg_val_loss
-        best_epoch = epoch
-        torch.save(classifier.state_dict(), os.path.join(save_dir, f"classifier.pth"))
-        torch.save(model.state_dict(), os.path.join(save_dir, f"transformer.pth"))
-
-
-
 
 def get_log_probs(
     logits: Float[Tensor, "batch posn d_vocab"], tokens: Int[Tensor, "batch posn"]
@@ -225,12 +232,12 @@ for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
         for head in range(classifier.transformer.cfg.n_heads):
             ablated_preds[layer][head] += ablated_pred_list[layer][head].tolist()
     ablation_scores += tmp_ablation_scores
-    if i % 16 == 0:
+    if i % 16 == 0 or i == len(val_dataloader) - 1:
         torch.save(ablation_scores / ((i+1) * batch_size), "bert_ablation_scores_jigsaw.pth")
-with open('bert_ablated_preds_jigsaw.json', 'w') as f:
-    json.dump(ablated_preds, f)
-with open('bert_base_preds_jigsaw.json', 'w') as f:
-    json.dump(base_preds, f)
+        with open('bert_ablated_preds_jigsaw.json', 'w') as f:
+            json.dump(ablated_preds, f)
+        with open('bert_base_preds_jigsaw.json', 'w') as f:
+            json.dump(base_preds, f)
 
-ablation_scores /= len(val_dataloader)
+ablation_scores /= len(dataset)
 torch.save(ablation_scores, "bert_ablation_scores_jigsaw.pth")
