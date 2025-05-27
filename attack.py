@@ -76,23 +76,21 @@ def main():
             print(f"Device {i}: {torch.cuda.get_device_name(i)}")
 
     ## Attack
-    tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-    model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
-    model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_2_acc_0.9236.pt', map_location=device))
-    model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
-    df = pd.read_csv('jigsaw/test.csv')
-    df.comment_text = df.comment_text.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
-    df.comment_text = df.comment_text.str.strip()
-    drop_indices = []
-    for i in trange(len(df)):
-        try:
-            if detect(df.comment_text[i]) != 'en':
-                drop_indices.append(i)
-        except:
-            drop_indices.append(i)
-    df = df.drop(drop_indices).reset_index(drop=True)
-    jigsaw_data = list(zip(df['comment_text'], df['toxic']))
-    dataset = textattack.datasets.dataset.Dataset(jigsaw_data)
+    # tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    # model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
+    # model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_1_acc_0.9372.pt', map_location=device))
+    # model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
+    # df = pd.read_csv('jigsaw/test.csv')
+    # df.comment_text = df.comment_text.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+    # df.comment_text = df.comment_text.str.strip()
+    # drop_indices = []
+    # for i in trange(len(df)):
+    #     try:
+    #         if detect(df.comment_text[i]) != 'en':
+    #             drop_indices.append(i)
+    #     except:
+    #         drop_indices.append(i)
+    # df = df.drop(drop_indices).reset_index(drop=True)
 
     # Get the specified attack
     attack = get_attack(model_wrapper, args.attack_name)
@@ -114,12 +112,24 @@ def main():
     # print(len(dataset['train']))
     # # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 
-    # tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    # print(tokenizer.pad_token)
-
-    # # Tokenization function
-    # def tokenize_data(example):
-    #     return tokenizer(example["perturbed_text"], padding="max_length", truncation=True, max_length=128, return_tensors="pt")
+    # # Get the specified attack
+    # attack = get_attack(model_wrapper, args.attack_name)
+    # attack_args = textattack.AttackArgs(
+    #     num_examples=50000, 
+    #     log_to_csv=f"{args.attack_name}_log.csv", 
+    #     disable_stdout=True, 
+    #     parallel=True,
+    #     checkpoint_dir="checkpoints", 
+    #     checkpoint_interval=1000, 
+    #     shuffle=True
+    # )
+    # attacker = textattack.Attacker(attack, dataset, attack_args)
+    # attacker.attack_dataset()
+    jigsaw_aug = pd.read_csv(f"{args.attack_name}_log.csv")
+    jigsaw_aug.drop(jigsaw_aug.columns.difference(["perturbed_text", "ground_truth_output"]), axis=1).to_csv(f"{args.attack_name}_jigsaw.csv", index=False)
+    dataset = load_dataset("csv", data_files={f'{args.attack_name}_jigsaw.csv'})
+    print(len(dataset['train']))
+    # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 
     # # Apply tokenization
     # dataset = dataset.map(tokenize_data, batched=True)
@@ -163,14 +173,14 @@ def main():
     #         return logits
 
 
-    # # Initialize model and optimizer
-    # num_classes = 2
-    # model = HookedEncoder.from_pretrained("bert-base-uncased", device=device)
-    # model.load_state_dict(torch.load("finetuned_bert/jigsaw/transformer.pth", map_location=device))
-    # model.to(device)
-    # classifier = BERTClassifier(model, num_classes)
-    # classifier.load_state_dict(torch.load("finetuned_bert/jigsaw/classifier.pth", map_location=device))
-    # classifier.to(device)
+    # Initialize model and optimizer
+    num_classes = 2
+    model = HookedEncoder.from_pretrained("bert-base-uncased", device=device)
+    model.load_state_dict(torch.load("finetuned_bert/jigsaw/transformer.pth", map_location=device))
+    model.to(device)
+    classifier = BERTClassifier(model, num_classes)
+    classifier.load_state_dict(torch.load("finetuned_bert/jigsaw/classifier.pth", map_location=device))
+    classifier.to(device)
 
     # criterion = nn.CrossEntropyLoss()
     # def get_log_probs(
@@ -225,32 +235,32 @@ def main():
 
     #     return ablation_scores, preds, ablated_pred_list
 
-    # print('patching')
-    # ablation_scores = torch.zeros(12,12, device=device)
-    # base_preds = []
-    # ablated_preds = {layer: {head : [] for head in range(classifier.transformer.cfg.n_heads)} for layer in range(classifier.transformer.cfg.n_layers)}
-    # for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
-    #     input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
-    #     tmp_ablation_scores, base_pred, ablated_pred_list = get_ablation_scores(classifier, input_ids, labels, head_zero_ablation_hook)
-    #     base_preds += base_pred.tolist()
-    #     for layer in range(classifier.transformer.cfg.n_layers):
-    #         for head in range(classifier.transformer.cfg.n_heads):
-    #             ablated_preds[layer][head] += ablated_pred_list[layer][head].tolist()
-    #     ablation_scores += tmp_ablation_scores
-    #     if i % 16 == 0 or i == len(val_dataloader) - 1:
-    #         torch.save(ablation_scores / ((i+1) * batch_size), f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth")
-    #         with open(f"{args.attack_name}/bert_ablated_preds_jigsaw_perturbed.json", 'w') as f:
-    #             json.dump(ablated_preds, f)
-    #         with open(f"{args.attack_name}/bert_base_preds_jigsaw_perturbed.json", 'w') as f:
-    #             json.dump(base_preds, f)
+    print('patching')
+    ablation_scores = torch.zeros(12,12, device=device)
+    base_preds = []
+    ablated_preds = {layer: {head : [] for head in range(classifier.transformer.cfg.n_heads)} for layer in range(classifier.transformer.cfg.n_layers)}
+    for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
+        input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
+        tmp_ablation_scores, base_pred, ablated_pred_list = get_ablation_scores(classifier, input_ids, labels, head_zero_ablation_hook)
+        base_preds += base_pred.tolist()
+        for layer in range(classifier.transformer.cfg.n_layers):
+            for head in range(classifier.transformer.cfg.n_heads):
+                ablated_preds[layer][head] += ablated_pred_list[layer][head].tolist()
+        ablation_scores += tmp_ablation_scores
+        if i % 16 == 0 or i == len(val_dataloader) - 1:
+            torch.save(ablation_scores / ((i+1) * batch_size), f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth")
+            with open(f"{args.attack_name}/bert_ablated_preds_jigsaw_perturbed.json", 'w') as f:
+                json.dump(ablated_preds, f)
+            with open(f"{args.attack_name}/bert_base_preds_jigsaw_perturbed.json", 'w') as f:
+                json.dump(base_preds, f)
 
-    # ablation_scores /= len(dataset)
-    # torch.save(ablation_scores, f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth")
+    ablation_scores /= len(dataset)
+    torch.save(ablation_scores, f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth")
 
-    # ## Analysis
-    # ablation_scores = torch.load(f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth", map_location=torch.device('cpu'))
-    # ablation_scores.shape
-    # tensor_np = ablation_scores.cpu().detach().numpy()
+    ## Analysis
+    ablation_scores = torch.load(f"{args.attack_name}/bert_ablation_scores_jigsaw_perturbed.pth", map_location=torch.device('cpu'))
+    ablation_scores.shape
+    tensor_np = ablation_scores.cpu().detach().numpy()
 
     # # Plot the heatmap
     # plt.figure(figsize=(8, 6))  # Adjust figure size
