@@ -153,17 +153,18 @@ def main():
     model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
     model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_2_acc_0.9236.pt', map_location=device))
     model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
-    df = pd.read_csv('jigsaw/test.csv')
-    df.comment_text = df.comment_text.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
-    df.comment_text = df.comment_text.str.strip()
-    drop_indices = []
-    for i in trange(len(df)):
-        try:
-            if detect(df.comment_text[i]) != 'en':
-                drop_indices.append(i)
-        except:
-            drop_indices.append(i)
-    df = df.drop(drop_indices).reset_index(drop=True)
+    df = pd.read_csv('jigsaw/test_clean.csv')
+    # df.comment_text = df.comment_text.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+    # df.comment_text = df.comment_text.str.strip()
+    # drop_indices = []
+    # for i in trange(len(df)):
+    #     try:
+    #         if detect(df.comment_text[i]) != 'en':
+    #             drop_indices.append(i)
+    #     except:
+    #         drop_indices.append(i)
+    # df = df.drop(drop_indices).reset_index(drop=True)
+    # df.to_csv('jigsaw/test_clean.csv', index=False)
     jigsaw_data = list(zip(df['comment_text'], df['toxic']))
     dataset = textattack.datasets.dataset.Dataset(jigsaw_data)
 
@@ -177,6 +178,7 @@ def main():
         checkpoint_dir="checkpoints", 
         checkpoint_interval=1000, 
         shuffle=True,
+        # query_budget=100,
     )
     attacker = textattack.Attacker(attack, dataset, attack_args)
     attacker.attack_dataset()
