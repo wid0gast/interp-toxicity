@@ -1,5 +1,5 @@
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,4,5,6,7"
 import textattack
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
@@ -49,12 +49,85 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from textattack.attack_recipes.textfooler_jin_2019 import TextFoolerJin2019
+from textattack.attack_recipes.bert_attack_li_2020 import BERTAttackLi2020
+from textattack.transformations import WordSwapMaskedLM
+from textattack.constraints.overlap import MaxWordsPerturbed
+from textattack.constraints.pre_transformation import RepeatModification, StopwordModification
+from textattack.constraints.semantics import WordEmbeddingDistance
+from textattack.constraints.grammaticality import PartOfSpeech
+from textattack.transformations import WordSwapEmbedding
+from textattack.search_methods import GreedyWordSwapWIR
+from textattack.goal_functions import UntargetedClassification
+
+class CustomTextFooler(TextFoolerJin2019):
+    @staticmethod
+    def build(model_wrapper):
+        transformation = WordSwapEmbedding(
+            max_candidates=50
+        )
+        
+        constraints = [
+            WordEmbeddingDistance(
+                min_cos_sim=0.5,
+                cased=False,
+                include_unknown_words=True,
+                compare_against_original=True
+            ),
+            PartOfSpeech(
+                tagger_type="nltk",
+                tagset="universal",
+                allow_verb_noun_swap=True,
+                compare_against_original=True
+            ),
+            RepeatModification(),
+            StopwordModification()
+        ]
+        
+        goal_function = UntargetedClassification(model_wrapper)
+        search_method = GreedyWordSwapWIR(wir_method="delete")
+        
+        return CustomTextFooler(
+            goal_function=goal_function,
+            constraints=constraints,
+            transformation=transformation,
+            search_method=search_method,
+        )
+
+class CustomBERTAttack(BERTAttackLi2020):
+    @staticmethod
+    def build(model_wrapper):
+        transformation = WordSwapMaskedLM(
+            method="bert-attack",
+            max_candidates=48,
+            min_confidence=5e-4,
+        )
+        
+        constraints = [
+            MaxWordsPerturbed(max_percent=0.4),
+            RepeatModification(),
+            StopwordModification()
+        ]
+        
+        goal_function = UntargetedClassification(model_wrapper)
+        search_method = GreedyWordSwapWIR(wir_method="unk")
+        
+        return CustomBERTAttack(
+            goal_function=goal_function,
+            constraints=constraints,
+            transformation=transformation,
+            search_method=search_method,
+        )
+
+
 def get_attack(model_wrapper, attack_name):
     attacks = {
         "deepword": textattack.attack_recipes.deepwordbug_gao_2018.DeepWordBugGao2018.build(model_wrapper),
         "input_reduction": textattack.attack_recipes.input_reduction_feng_2018.InputReductionFeng2018.build(model_wrapper),
         "pwws": textattack.attack_recipes.pwws_ren_2019.PWWSRen2019.build(model_wrapper),
-        "pruthi": textattack.attack_recipes.pruthi_2019.Pruthi2019.build(model_wrapper)
+        "pruthi": textattack.attack_recipes.pruthi_2019.Pruthi2019.build(model_wrapper),
+        "textfooler": CustomTextFooler.build(model_wrapper),
+        "bert_attack": CustomBERTAttack.build(model_wrapper)
     }
     
     if attack_name not in attacks:
@@ -97,14 +170,13 @@ def main():
     # Get the specified attack
     attack = get_attack(model_wrapper, args.attack_name)
     attack_args = textattack.AttackArgs(
-        num_examples=2500, 
+        num_examples=50000, 
         log_to_csv=f"{args.attack_name}_log.csv", 
         disable_stdout=True, 
         parallel=True,
         checkpoint_dir="checkpoints", 
-        checkpoint_interval=100, 
+        checkpoint_interval=1000, 
         shuffle=True,
-        query_budget=5
     )
     attacker = textattack.Attacker(attack, dataset, attack_args)
     attacker.attack_dataset()
