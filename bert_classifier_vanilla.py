@@ -34,7 +34,7 @@ class JigsawDataset(torch.utils.data.Dataset):
         return {key: self.dataset[idx][key] for key in ["input_ids", "attention_mask", "labels"]}
 
 # Dataloaders
-batch_size = 64
+batch_size = 16
 train_dataloader = DataLoader(JigsawDataset(dataset["train"]), batch_size=batch_size, shuffle=True)
 val_dataloader = DataLoader(JigsawDataset(dataset["test"]), batch_size=batch_size, shuffle=False)
 
