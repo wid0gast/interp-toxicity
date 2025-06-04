@@ -3,6 +3,7 @@ finetuned_bert
 bert_classifier_vanilla
 
 interp-toxicity
+interp-toxicity2
 pattern
 checkpoints
 

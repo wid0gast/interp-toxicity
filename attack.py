@@ -1,5 +1,5 @@
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,5,6,7"
 import textattack
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
@@ -76,21 +76,21 @@ def main():
             print(f"Device {i}: {torch.cuda.get_device_name(i)}")
 
     ## Attack
-    # tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-    # model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
-    # model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_1_acc_0.9372.pt', map_location=device))
-    # model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
-    # df = pd.read_csv('jigsaw/test.csv')
-    # df.comment_text = df.comment_text.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
-    # df.comment_text = df.comment_text.str.strip()
-    # drop_indices = []
-    # for i in trange(len(df)):
-    #     try:
-    #         if detect(df.comment_text[i]) != 'en':
-    #             drop_indices.append(i)
-    #     except:
-    #         drop_indices.append(i)
-    # df = df.drop(drop_indices).reset_index(drop=True)
+    tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
+    model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_1_acc_0.9372.pt', map_location=device))
+    model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
+    df = pd.read_csv('jigsaw/test.csv')
+    df.comment_text = df.comment_text.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+    df.comment_text = df.comment_text.str.strip()
+    drop_indices = []
+    for i in trange(len(df)):
+        try:
+            if detect(df.comment_text[i]) != 'en':
+                drop_indices.append(i)
+        except:
+            drop_indices.append(i)
+    df = df.drop(drop_indices).reset_index(drop=True)
 
     # Get the specified attack
     attack = get_attack(model_wrapper, args.attack_name)
@@ -112,20 +112,22 @@ def main():
     # print(len(dataset['train']))
     # # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 
-    # # Get the specified attack
-    # attack = get_attack(model_wrapper, args.attack_name)
-    # attack_args = textattack.AttackArgs(
-    #     num_examples=50000, 
-    #     log_to_csv=f"{args.attack_name}_log.csv", 
-    #     disable_stdout=True, 
-    #     parallel=True,
-    #     checkpoint_dir="checkpoints", 
-    #     checkpoint_interval=1000, 
-    #     shuffle=True
-    # )
-    # attacker = textattack.Attacker(attack, dataset, attack_args)
-    # attacker.attack_dataset()
+    # Get the specified attack
+    attack = get_attack(model_wrapper, args.attack_name)
+    attack_args = textattack.AttackArgs(
+        num_examples=50000, 
+        query_budget=1,
+        log_to_csv=f"{args.attack_name}_log.csv", 
+        disable_stdout=True, 
+        parallel=True,
+        checkpoint_dir="checkpoints", 
+        checkpoint_interval=1000, 
+        shuffle=True
+    )
+    attacker = textattack.Attacker(attack, dataset, attack_args)
+    attacker.attack_dataset()
     jigsaw_aug = pd.read_csv(f"{args.attack_name}_log.csv")
+    jigsaw_aug = jigsaw_aug[jigsaw_aug.result_type == 'Successful'].reset_index(drop=True)
     jigsaw_aug.drop(jigsaw_aug.columns.difference(["perturbed_text", "ground_truth_output"]), axis=1).to_csv(f"{args.attack_name}_jigsaw.csv", index=False)
     dataset = load_dataset("csv", data_files={f'{args.attack_name}_jigsaw.csv'})
     print(len(dataset['train']))
