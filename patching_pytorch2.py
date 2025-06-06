@@ -288,19 +288,17 @@ model.to(device)
 criterion = nn.CrossEntropyLoss()
 
 # %%
-df = pd.read_csv('jigsaw/test.csv')
-
 # %%
-dataset = load_dataset("csv", data_files={"jigsaw/test.csv"})
+dataset = load_dataset("csv", data_files={"pwws_log.csv"})
 # dataset = Dataset.from_pandas(df.groupby('toxic').sample(n=1000).reset_index(drop=True))
 # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 # Tokenization function
 def tokenize_data(example):
-    return tokenizer(example["comment_text"], padding="max_length", truncation=True, max_length=128, return_tensors="pt")
+    return tokenizer(example["perturbed_text"], padding="max_length", truncation=True, max_length=128, return_tensors="pt")
 
 # Apply tokenization
 dataset = dataset.map(tokenize_data, batched=True)
-dataset = dataset.rename_column("toxic", "labels")  # Rename for consistency
+dataset = dataset.rename_column("ground_truth_output", "labels")  # Rename for consistency
 dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
 # %%
@@ -315,7 +313,7 @@ class JigsawDataset(Dataset):
         return {key: self.dataset[idx][key] for key in ["input_ids", "labels", "attention_mask"]}
 
 # Create PyTorch DataLoaders
-batch_size = 32
+batch_size = 256
 val_dataloader = DataLoader(JigsawDataset(dataset['train']), batch_size=batch_size, shuffle=False)
 
 # %%
@@ -332,10 +330,10 @@ for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
         for head in range(model.config.num_attention_heads):
             ablated_preds[layer][head] += ablated_pred_list[(layer, head)].tolist()
     if i % 16 == 0 or i == len(val_dataloader) - 1:
-        torch.save(ablation_scores / ((i+1) * batch_size), "bert_ablation_scores_jigsaw_perturbed.pth")
-        with open('bert_ablated_preds_jigsaw_perturbed.json', 'w') as f:
+        torch.save(ablation_scores / ((i+1) * batch_size), "pwws/bert_ablation_scores_jigsaw_perturbed.pth")
+        with open('pwws/bert_ablated_preds_jigsaw_perturbed.json', 'w') as f:
             json.dump(ablated_preds, f)
-        with open('bert_base_preds_jigsaw_perturbed.json', 'w') as f:
+        with open('pwws/bert_base_preds_jigsaw_perturbed.json', 'w') as f:
             json.dump(base_preds, f)
 
 # ablation_scores /= len(val_dataloader)
