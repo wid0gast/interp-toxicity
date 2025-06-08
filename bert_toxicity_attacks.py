@@ -218,12 +218,12 @@ class PGDBERTAttack:
             sampler=sampler,
             num_workers=0  # Disable multiprocessing to avoid CUDA issues
         )
-        
+        print(len(dataloader))
         results = []
         total_processed = 0
         total_successes = 0
         
-        for batch_idx, (batch_texts, batch_labels) in enumerate(dataloader):
+        for batch_idx, (batch_texts, batch_labels) in tqdm(enumerate(dataloader), total=len(dataloader)):
             batch_results = []
             batch_successes = 0
             
