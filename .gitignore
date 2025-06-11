@@ -7,3 +7,4 @@ interp-toxicity2
 pattern
 checkpoints
 
+*.pt
