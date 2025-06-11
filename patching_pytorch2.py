@@ -289,7 +289,7 @@ criterion = nn.CrossEntropyLoss()
 
 # %%
 # %%
-dataset = load_dataset("csv", data_files={"pgd_log.csv"})
+dataset = load_dataset("csv", data_files={"pgd_log2.csv"})
 # dataset = Dataset.from_pandas(df.groupby('toxic').sample(n=1000).reset_index(drop=True))
 # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 # Tokenization function

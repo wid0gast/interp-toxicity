@@ -27,7 +27,7 @@ def set_seed(seed: int = 42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-def tokenize(text: str, tokenizer, device, max_length=512):
+def tokenize(text: str, tokenizer, device, max_length=128):
     """Tokenize text with proper truncation."""
     # First truncate the text itself to avoid tokenization issues
     tokens = tokenizer.tokenize(text)
@@ -320,8 +320,8 @@ def main():
     # Load data
     import pandas as pd
     df = pd.read_csv(args.input_file)
-    texts = df["comment_text"].tolist()
-    labels = df["toxic"].astype(int).tolist()
+    texts = df["generation"].tolist()
+    labels = df["prompt_label"].astype(int).tolist()
 
     # Initialize attacker
     attacker = PGDBERTAttack(

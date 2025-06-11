@@ -8,18 +8,18 @@ from tqdm.auto import tqdm
 import os
 
 # Load dataset
-dataset = load_dataset("csv", data_files={"train": 'jigsaw/train.csv', "test": 'jigsaw/test.csv'})
+dataset = load_dataset("csv", data_files={"train": 'toxigen/train.csv', "test": 'toxigen/test.csv'})
 
 # Load tokenizer
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
 # Tokenization function
 def tokenize_data(example):
-    return tokenizer(example["comment_text"], padding="max_length", truncation=True, max_length=128)
+    return tokenizer(example["generation"], padding="max_length", truncation=True, max_length=128)
 
 # Tokenize dataset
 dataset = dataset.map(tokenize_data, batched=True)
-dataset = dataset.rename_column("toxic", "labels")
+dataset = dataset.rename_column("prompt_label", "labels")
 dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
 # Custom Dataset wrapper
@@ -34,7 +34,7 @@ class JigsawDataset(torch.utils.data.Dataset):
         return {key: self.dataset[idx][key] for key in ["input_ids", "attention_mask", "labels"]}
 
 # Dataloaders
-batch_size = 16
+batch_size = 256
 train_dataloader = DataLoader(JigsawDataset(dataset["train"]), batch_size=batch_size, shuffle=True)
 val_dataloader = DataLoader(JigsawDataset(dataset["test"]), batch_size=batch_size, shuffle=False)
 
@@ -58,7 +58,7 @@ lr_scheduler = get_scheduler(
 best_accuracy = 0
 patience = 3
 no_improvement = 0
-os.makedirs('bert_classifier_vanilla', exist_ok=True)
+os.makedirs('toxigen', exist_ok=True)
 
 progress_bar = tqdm(range(num_training_steps))
 for epoch in range(num_epochs):
@@ -94,7 +94,7 @@ for epoch in range(num_epochs):
     if accuracy > best_accuracy:
         best_accuracy = accuracy
         no_improvement = 0
-        model_path = f'bert_classifier_vanilla/model_epoch_{epoch+1}_acc_{accuracy:.4f}.pt'
+        model_path = f'toxigen/model_epoch_{epoch+1}_acc_{accuracy:.4f}.pt'
         torch.save(model.state_dict(), model_path)
         print(f"Model saved to {model_path}")
     else:
