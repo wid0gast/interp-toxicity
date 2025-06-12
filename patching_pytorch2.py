@@ -289,7 +289,7 @@ criterion = nn.CrossEntropyLoss()
 
 # %%
 # %%
-dataset = load_dataset("csv", data_files={"pgd_log2.csv"})
+dataset = load_dataset("csv", data_files={"pgd_log_toxigen.csv"})
 # dataset = Dataset.from_pandas(df.groupby('toxic').sample(n=1000).reset_index(drop=True))
 # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 # Tokenization function
@@ -330,10 +330,10 @@ for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
         for head in range(model.config.num_attention_heads):
             ablated_preds[layer][head] += ablated_pred_list[(layer, head)].tolist()
     if i % 16 == 0 or i == len(val_dataloader) - 1:
-        torch.save(ablation_scores / ((i+1) * batch_size), "pgd/bert_ablation_scores_jigsaw_perturbed.pth")
-        with open('pgd/bert_ablated_preds_jigsaw_perturbed.json', 'w') as f:
+        torch.save(ablation_scores / ((i+1) * batch_size), "pgd/bert_ablation_scores_toxigen_perturbed.pth")
+        with open('pgd/bert_ablated_preds_toxigen_perturbed.json', 'w') as f:
             json.dump(ablated_preds, f)
-        with open('pgd/bert_base_preds_jigsaw_perturbed.json', 'w') as f:
+        with open('pgd/bert_base_preds_toxigen_perturbed.json', 'w') as f:
             json.dump(base_preds, f)
 
 # ablation_scores /= len(val_dataloader)
