@@ -8,3 +8,4 @@ pattern
 checkpoints
 
 *.pt
+toxigen/train.csv
