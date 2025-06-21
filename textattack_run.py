@@ -1,6 +1,6 @@
 # %%
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import textattack_run
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
