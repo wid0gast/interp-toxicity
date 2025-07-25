@@ -45298,6 +45298,7 @@
 {"success": true, "iters": 1, "id": 45297, "orig_text": " People were more likely to agree that mental illness is not something that needs to be cured People were less likely to agree that it is okay to", "adv_text": "people were more likely to agree that mental illness is not something that needs to be - people were less likely to agree that it is okay to", "orig_label": 0}
 {"success": true, "iters": 1, "id": 45298, "orig_text": " the offical mental health week website", "adv_text": "the offical mental facility week website", "orig_label": 0}
 {"success": true, "iters": 1, "id": 45299, "orig_text": " disabled people are not second-class citizens; they have talents and skills to contribute to society too", "adv_text": "disabled people are not well - class citizens ; they have talents and skills to contribute to society too", "orig_label": 0}
+<<<<<<< HEAD
 {"success": true, "iters": 1, "id": 45300, "orig_text": " The use of nurse aides and service dogs can be a true service to someone who is disabled.---- Mental Health Care Act passed in 1970", "adv_text": "the use of nurse reds and service dogs can be a true service to someone who is disabled. - - - - mental health care act passed in 1970", "orig_label": 0}
 {"success": true, "iters": 1, "id": 45301, "orig_text": " there is no shame in having a mental illness", "adv_text": "there is no shame in having a mental -", "orig_label": 0}
 {"success": true, "iters": 3, "id": 45302, "orig_text": " there is always hope, and no one is too far gone to reach - despite the many years of hardship that I've had to endure,", "adv_text": "there is always hope, and no one is too great advanced to live - despite the many years of hardship that i ' ve had to endure,", "orig_label": 0}
@@ -62735,3 +62736,5 @@
 {"success": true, "iters": 4, "id": 62734, "orig_text": "  a w o m a n / w o m a n s  seldom refers to a specific individual–the definition is broader.", "adv_text": "a w o m a n / w o m a n s only refers to a criminal individual – the meaning is clear.", "orig_label": 0}
 {"success": true, "iters": 2, "id": 62735, "orig_text": " In the U.S., most vice presidents are men", "adv_text": "in the u. s., most vice presidents fall -", "orig_label": 0}
 {"success": true, "iters": 1, "id": 62736, "orig_text": " it is dangerous to drive a car on windy roads", "adv_text": "it is unsafe to drive a car on windy roads", "orig_label": 0}
+=======
+>>>>>>> origin/local
