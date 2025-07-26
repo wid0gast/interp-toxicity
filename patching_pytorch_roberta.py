@@ -203,8 +203,8 @@ def zero_head(model: nn.Module, layer_idx: int, head_idx: int):
             out = model(input_ids, attention_mask, labels=labels)
         # After the with-block, head 4 is restored.
     """
-    # 1) Grab the BertSelfAttention submodule from the desired encoder layer
-    layer_self_attn = model.bert.encoder.layer[layer_idx].attention.self
+    # 1) Grab the RobertaSelfAttention submodule from the desired encoder layer
+    layer_self_attn = model.roberta.encoder.layer[layer_idx].attention.self
 
     # 2) Keep a reference to its original forward
     orig_forward = layer_self_attn.forward
