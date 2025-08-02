@@ -82,7 +82,7 @@ def evaluate_robustness(model, tokenizer, device, df, sample_size=100, output_fi
     # Sample some data for evaluation
     sample_df = df.sample(sample_size, random_state=42)
     sample_texts = sample_df.comment_text.tolist()
-    sample_labels = sample_df.toxic.astype(int).tolist()
+    sample_labels = sample_df.toxicity.astype(int).tolist()
     
     print(f"Running attacks on {sample_size} samples...")
     print(f"Sample distribution: {sum(sample_labels)} toxic, {len(sample_labels) - sum(sample_labels)} non-toxic")
@@ -161,7 +161,7 @@ def main():
                        help="Path to the test data CSV file")
     parser.add_argument("--sample_size", type=int, default=100,
                        help="Number of samples to evaluate (default: 100)")
-    parser.add_argument("--output_file", type=str, default="snlp_roberta/jigsaw_pgd.jsonl",
+    parser.add_argument("--output_file", type=str, default="snlp_roberta/jigsaw_dem_pgd.jsonl",
                        help="Path to save results (default: snlp_roberta/jigsaw_pgd.jsonl)")
     parser.add_argument("--device_id", type=int, default=5,
                        help="CUDA device ID to use (default: 5)")
@@ -183,7 +183,7 @@ def main():
     # Sample data for evaluation
     sample_df = df.sample(args.sample_size, random_state=42)
     sample_texts = sample_df.comment_text.tolist()
-    sample_labels = sample_df.toxic.astype(int).tolist()
+    sample_labels = sample_df.toxicity.astype(int).tolist()
     
     # Evaluate robustness
     robustness_results = evaluate_robustness(
