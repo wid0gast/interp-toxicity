@@ -23,7 +23,7 @@ def setup_device():
     if torch.cuda.is_available():
         for i in range(torch.cuda.device_count()):
             print(f"Device {i}: {torch.cuda.get_device_name(i)}")
-    device = torch.device('cuda:5') if torch.cuda.is_available() else torch.device('cpu')
+    device = torch.device('cuda:2') if torch.cuda.is_available() else torch.device('cpu')
     return device
 
 
@@ -82,7 +82,7 @@ def evaluate_robustness(model, tokenizer, device, df, sample_size=100, output_fi
     # Sample some data for evaluation
     sample_df = df.sample(sample_size, random_state=42)
     sample_texts = sample_df.comment_text.tolist()
-    sample_labels = sample_df.toxicity.astype(int).tolist()
+    sample_labels = sample_df.toxicity_label.astype(int).tolist()
     
     print(f"Running attacks on {sample_size} samples...")
     print(f"Sample distribution: {sum(sample_labels)} toxic, {len(sample_labels) - sum(sample_labels)} non-toxic")
@@ -183,7 +183,7 @@ def main():
     # Sample data for evaluation
     sample_df = df.sample(args.sample_size, random_state=42)
     sample_texts = sample_df.comment_text.tolist()
-    sample_labels = sample_df.toxicity.astype(int).tolist()
+    sample_labels = sample_df.toxicity_label.astype(int).tolist()
     
     # Evaluate robustness
     robustness_results = evaluate_robustness(
