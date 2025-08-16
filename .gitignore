@@ -6,6 +6,7 @@ interp-toxicity
 interp-toxicity2
 pattern
 checkpoints
+all_data.csv
 
 *.pt
 toxigen/train.csv
