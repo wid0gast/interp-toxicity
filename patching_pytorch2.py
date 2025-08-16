@@ -37,15 +37,18 @@ import math
 import seaborn as sns
 
 # %%
+# Set your Hugging Face model name here (e.g., 'bert-base-uncased', 's-nlp/roberta_toxicity_classifier', etc.)
+model_name = "s-nlp/roberta_toxicity_classifier"  # CHANGE THIS as needed
+
 device     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-tokenizer  = AutoTokenizer.from_pretrained("bert-base-uncased")
+tokenizer  = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSequenceClassification.from_pretrained(
-    "bert-base-uncased",
-    num_labels=2,
-    output_attentions=True      # optional
+    model_name,
+    output_attentions=True  # required for patching heads
 ).to(device)
 model.eval()
-model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_2_acc_0.9236.pt', map_location=device))
+# (No local .pt loading)
+# model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_2_acc_0.9236.pt', map_location=device))
 
 # %% [markdown]
 # ## Patching
@@ -289,16 +292,16 @@ criterion = nn.CrossEntropyLoss()
 
 # %%
 # %%
-dataset = load_dataset("csv", data_files={"pgd_log_toxigen.csv"})
+dataset = load_dataset("json", data_files={"snlp_roberta/jigsaw_pgd.jsonl"})
 # dataset = Dataset.from_pandas(df.groupby('toxic').sample(n=1000).reset_index(drop=True))
 # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 # Tokenization function
 def tokenize_data(example):
-    return tokenizer(example["perturbed_text"], padding="max_length", truncation=True, max_length=512, return_tensors="pt")
+    return tokenizer(example["adv_text"], padding="max_length", truncation=True, max_length=512, return_tensors="pt")
 
 # Apply tokenization
 dataset = dataset.map(tokenize_data, batched=True)
-dataset = dataset.rename_column("ground_truth_output", "labels")  # Rename for consistency
+dataset = dataset.rename_column("orig_label", "labels")  # Rename for consistency
 dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
 # %%
@@ -330,10 +333,10 @@ for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
         for head in range(model.config.num_attention_heads):
             ablated_preds[layer][head] += ablated_pred_list[(layer, head)].tolist()
     if i % 16 == 0 or i == len(val_dataloader) - 1:
-        torch.save(ablation_scores / ((i+1) * batch_size), "pgd/bert_ablation_scores_toxigen_perturbed.pth")
-        with open('pgd/bert_ablated_preds_toxigen_perturbed.json', 'w') as f:
+        torch.save(ablation_scores / ((i+1) * batch_size), "pgd/snlp_roberta_ablation_scores_jigsaw_perturbed.pth")
+        with open('pgd/snlp_roberta_ablated_preds_jigsaw_perturbed.json', 'w') as f:
             json.dump(ablated_preds, f)
-        with open('pgd/bert_base_preds_toxigen_perturbed.json', 'w') as f:
+        with open('pgd/snlp_roberta_base_preds_jigsaw_perturbed.json', 'w') as f:
             json.dump(base_preds, f)
 
 # ablation_scores /= len(val_dataloader)

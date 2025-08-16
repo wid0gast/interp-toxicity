@@ -1,5 +1,5 @@
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,4,5,6,7"
 import textattack
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
@@ -50,12 +50,85 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from textattack.attack_recipes.textfooler_jin_2019 import TextFoolerJin2019
+from textattack.attack_recipes.bert_attack_li_2020 import BERTAttackLi2020
+from textattack.transformations import WordSwapMaskedLM
+from textattack.constraints.overlap import MaxWordsPerturbed
+from textattack.constraints.pre_transformation import RepeatModification, StopwordModification
+from textattack.constraints.semantics import WordEmbeddingDistance
+from textattack.constraints.grammaticality import PartOfSpeech
+from textattack.transformations import WordSwapEmbedding
+from textattack.search_methods import GreedyWordSwapWIR
+from textattack.goal_functions import UntargetedClassification
+
+class CustomTextFooler(TextFoolerJin2019):
+    @staticmethod
+    def build(model_wrapper):
+        transformation = WordSwapEmbedding(
+            max_candidates=50
+        )
+        
+        constraints = [
+            WordEmbeddingDistance(
+                min_cos_sim=0.5,
+                cased=False,
+                include_unknown_words=True,
+                compare_against_original=True
+            ),
+            PartOfSpeech(
+                tagger_type="nltk",
+                tagset="universal",
+                allow_verb_noun_swap=True,
+                compare_against_original=True
+            ),
+            RepeatModification(),
+            StopwordModification()
+        ]
+        
+        goal_function = UntargetedClassification(model_wrapper)
+        search_method = GreedyWordSwapWIR(wir_method="delete")
+        
+        return CustomTextFooler(
+            goal_function=goal_function,
+            constraints=constraints,
+            transformation=transformation,
+            search_method=search_method,
+        )
+
+class CustomBERTAttack(BERTAttackLi2020):
+    @staticmethod
+    def build(model_wrapper):
+        transformation = WordSwapMaskedLM(
+            method="bert-attack",
+            max_candidates=48,
+            min_confidence=5e-4,
+        )
+        
+        constraints = [
+            MaxWordsPerturbed(max_percent=0.4),
+            RepeatModification(),
+            StopwordModification()
+        ]
+        
+        goal_function = UntargetedClassification(model_wrapper)
+        search_method = GreedyWordSwapWIR(wir_method="unk")
+        
+        return CustomBERTAttack(
+            goal_function=goal_function,
+            constraints=constraints,
+            transformation=transformation,
+            search_method=search_method,
+        )
+
+
 def get_attack(model_wrapper, attack_name):
     attacks = {
         "deepword": textattack.attack_recipes.deepwordbug_gao_2018.DeepWordBugGao2018.build(model_wrapper),
         "input_reduction": textattack.attack_recipes.input_reduction_feng_2018.InputReductionFeng2018.build(model_wrapper),
         "pwws": textattack.attack_recipes.pwws_ren_2019.PWWSRen2019.build(model_wrapper),
-        "pruthi": textattack.attack_recipes.pruthi_2019.Pruthi2019.build(model_wrapper)
+        "pruthi": textattack.attack_recipes.pruthi_2019.Pruthi2019.build(model_wrapper),
+        "textfooler": CustomTextFooler.build(model_wrapper),
+        "bert_attack": CustomBERTAttack.build(model_wrapper)
     }
     
     if attack_name not in attacks:
@@ -77,11 +150,19 @@ def main():
             print(f"Device {i}: {torch.cuda.get_device_name(i)}")
 
     ## Attack
+<<<<<<< HEAD
+    tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
+    model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_2_acc_0.9236.pt', map_location=device))
+    model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
+    df = pd.read_csv('jigsaw/test_clean.csv')
+=======
     # tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     # model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
     # model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_1_acc_0.9372.pt', map_location=device))
     # model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
     # df = pd.read_csv('jigsaw/test.csv')
+>>>>>>> origin/local
     # df.comment_text = df.comment_text.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
     # df.comment_text = df.comment_text.str.strip()
     # drop_indices = []
@@ -92,9 +173,15 @@ def main():
     #     except:
     #         drop_indices.append(i)
     # df = df.drop(drop_indices).reset_index(drop=True)
+<<<<<<< HEAD
+    # df.to_csv('jigsaw/test_clean.csv', index=False)
+    jigsaw_data = list(zip(df['comment_text'], df['toxic']))
+    dataset = textattack.datasets.dataset.Dataset(jigsaw_data)
+=======
 
     # jigsaw_data = list(zip(df['comment_text'], df['toxic']))
     # dataset = textattack.datasets.dataset.Dataset(jigsaw_data)
+>>>>>>> origin/local
 
     # Get the specified attack
     attack = get_attack(model_wrapper, args.attack_name)
@@ -106,6 +193,10 @@ def main():
         checkpoint_dir="checkpoints", 
         checkpoint_interval=1000, 
         shuffle=True,
+<<<<<<< HEAD
+        # query_budget=100,
+=======
+>>>>>>> origin/local
     )
     attacker = textattack.Attacker(attack, dataset, attack_args)
     attacker.attack_dataset()
