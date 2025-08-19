@@ -292,7 +292,10 @@ criterion = nn.CrossEntropyLoss()
 
 # %%
 # %%
-dataset = load_dataset("json", data_files={"snlp_roberta/jigsaw_dem_pgd.jsonl"})
+# dataset = load_dataset("json", data_files={"snlp_roberta/jigsaw_dem_pgd.jsonl"})
+df = pd.read_json('snlp_roberta/jigsaw_dem_pgd.jsonl', lines=True)
+df = df.dropna(subset=["adv_text"]).reset_index(drop=True)
+dataset = Dataset.from_pandas(df)
 # dataset = Dataset.from_pandas(df.groupby('toxic').sample(n=1000).reset_index(drop=True))
 # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 # Tokenization function
@@ -317,7 +320,7 @@ class JigsawDataset(Dataset):
 
 # Create PyTorch DataLoaders
 batch_size = 256
-val_dataloader = DataLoader(JigsawDataset(dataset['train']), batch_size=batch_size, shuffle=False)
+val_dataloader = DataLoader(JigsawDataset(dataset), batch_size=batch_size, shuffle=False)
 
 # %%
 print('patching')
