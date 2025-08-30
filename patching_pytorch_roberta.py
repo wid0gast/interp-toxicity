@@ -300,7 +300,7 @@ dataset = Dataset.from_pandas(df)
 # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 # Tokenization function
 def tokenize_data(example):
-    return tokenizer(example["adv_text"], padding="max_length", truncation=True, max_length=512, return_tensors="pt")
+    return tokenizer(example["orig_text"], padding="max_length", truncation=True, max_length=256, return_tensors="pt")
 
 # Apply tokenization
 dataset = dataset.map(tokenize_data, batched=True)
@@ -336,10 +336,10 @@ for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
         for head in range(model.config.num_attention_heads):
             ablated_preds[layer][head] += ablated_pred_list[(layer, head)].tolist()
     if i % 16 == 0 or i == len(val_dataloader) - 1:
-        torch.save(ablation_scores / ((i+1) * batch_size), "pgd/snlp_roberta_ablation_scores_jigsaw_dem_perturbed.pth")
-        with open('pgd/snlp_roberta_ablated_preds_jigsaw_dem_perturbed.json', 'w') as f:
+        torch.save(ablation_scores / ((i+1) * batch_size), "pgd/snlp_roberta_ablation_scores_jigsaw_dem.pth")
+        with open('pgd/snlp_roberta_ablated_preds_jigsaw_dem.json', 'w') as f:
             json.dump(ablated_preds, f)
-        with open('pgd/snlp_roberta_base_preds_jigsaw_dem_perturbed.json', 'w') as f:
+        with open('pgd/snlp_roberta_base_preds_jigsaw_dem.json', 'w') as f:
             json.dump(base_preds, f)
 
 # ablation_scores /= len(val_dataloader)
