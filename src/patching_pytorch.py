@@ -141,8 +141,8 @@ model.eval()
 model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_2_acc_0.9236.pt', map_location=device))
 
 # %%
-# dataset = load_dataset("csv", data_files={'input_reduction_log.csv'})
-df = pd.read_csv('jigsaw/test.csv')
+# dataset = load_dataset("csv", data_files={'logs/input_reduction_log.csv'})
+df = pd.read_csv('data/raw/jigsaw/test.csv')
 dataset = Dataset.from_pandas(df.groupby('toxic').sample(n=5000).reset_index(drop=True))
 # dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 # Tokenization function

@@ -8,7 +8,7 @@ from tqdm.auto import tqdm
 import os
 
 # Load dataset
-dataset = load_dataset("csv", data_files={"train": 'toxigen/train.csv', "test": 'toxigen/test.csv'})
+dataset = load_dataset("csv", data_files={"train": 'data/raw/toxigen/train.csv', "test": 'data/raw/toxigen/test.csv'})
 
 # Load tokenizer
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -94,7 +94,7 @@ for epoch in range(num_epochs):
     if accuracy > best_accuracy:
         best_accuracy = accuracy
         no_improvement = 0
-        model_path = f'toxigen/model_epoch_{epoch+1}_acc_{accuracy:.4f}.pt'
+        model_path = f'checkpoints/model_epoch_{epoch+1}_acc_{accuracy:.4f}.pt'
         torch.save(model.state_dict(), model_path)
         print(f"Model saved to {model_path}")
     else:

@@ -12,7 +12,10 @@ import os
 import pandas as pd
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
-from pgd_bert_attack import PGDBERTAttack, set_seed
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
+from attacks.pgd_bert_attack import PGDBERTAttack, set_seed
 from tqdm import tqdm
 import argparse
 
@@ -89,7 +92,7 @@ def evaluate_robustness(model, tokenizer, device, df, sample_size=100, output_fi
     
     # Set default output file if not provided
     if output_file is None:
-        output_file = "snlp_roberta/jigsaw_pgd.jsonl"
+        output_file = "results/snlp_roberta/jigsaw_pgd.jsonl"
     
     # Run batch attack evaluation with saving enabled
     robustness_results = attacker.evaluate_robustness(
@@ -157,12 +160,12 @@ def analyze_results(robustness_results, sample_labels):
 def main():
     """Main function to run the robustness evaluation."""
     parser = argparse.ArgumentParser(description="Evaluate model robustness against PGD attacks")
-    parser.add_argument("--data_path", type=str, default="jigsaw/test_clean.csv", 
+    parser.add_argument("--data_path", type=str, default="data/raw/jigsaw/test_clean.csv", 
                        help="Path to the test data CSV file")
     parser.add_argument("--sample_size", type=int, default=100,
                        help="Number of samples to evaluate (default: 100)")
-    parser.add_argument("--output_file", type=str, default="snlp_roberta/jigsaw_dem_pgd.jsonl",
-                       help="Path to save results (default: snlp_roberta/jigsaw_pgd.jsonl)")
+    parser.add_argument("--output_file", type=str, default="results/snlp_roberta/jigsaw_dem_pgd.jsonl",
+                       help="Path to save results (default: results/snlp_roberta/jigsaw_pgd.jsonl)")
     parser.add_argument("--device_id", type=int, default=5,
                        help="CUDA device ID to use (default: 5)")
     

@@ -1,13 +1,57 @@
-finetuned_gpt2
-finetuned_bert
-bert_classifier_vanilla
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 
-interp-toxicity
-interp-toxicity2
-pattern
-checkpoints
+# Virtual environments
+interp-toxicity/
+interp-toxicity2/
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Model checkpoints and large files
+finetuned_gpt2/
+finetuned_bert/
+bert_classifier_vanilla/
+checkpoints/
+*.pt
+*.pth
+*.h5
+*.ckpt
+
+# Data files (keep structure, ignore large files)
+data/raw/*.csv
+data/raw/*.tsv
+!data/raw/jigsaw/test_clean.csv
+!data/raw/toxigen/test_clean.csv
 all_data.csv
 
-*.pt
-toxigen/train.csv
-jigsaw/test_with_dem.csv
+# Logs and temporary files
+logs/*.log
+logs/pgd_log
+logs/pgd_log_toxigen
+*.log
+
+# Results (optional - uncomment if you don't want to track results)
+# results/predictions/*.json
+# results/scores/*.pth
+# results/plots/*.png
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# OS
+.DS_Store
+Thumbs.db

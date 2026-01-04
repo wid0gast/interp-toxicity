@@ -1,12 +1,3 @@
-# %%
-import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-import textattack_run
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-import torch
-import pandas as pd
-
-# %%
 from tqdm import tqdm, trange
 
 from datasets import load_dataset
@@ -22,7 +13,7 @@ import numpy as np
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
-import eindex
+from eindex import eindex
 # from IPython.display import display
 from jaxtyping import Float, Int
 from torch import Tensor
@@ -48,44 +39,44 @@ from transformer_lens import HookedTransformer
 import os
 import json
 
-# %%
-print("Available CUDA devices:", torch.cuda.device_count())
-if torch.cuda.is_available():
-    for i in range(torch.cuda.device_count()):
-        print(f"Device {i}: {torch.cuda.get_device_name(i)}")
+# os.environ['CUDA_VISIBLE_DEVICES'] = "7"
 
 
-# %%
-tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_1_acc_0.9372.pt', map_location=device))
-model_wrapper = textattack_run.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
+dataset = load_dataset("csv", data_files={'input_reduction_log.csv'})
+print(len(dataset['train']))
+# dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 
-# %%
-df = pd.read_csv('jigsaw/test.csv')
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-# %%
-jigsaw_data = list(zip(df['comment_text'], df['toxic']))
+# Tokenization function
+def tokenize_data(example):
+    return tokenizer(example["original_text"], padding="max_length", truncation=True, max_length=128, return_tensors="pt")
 
-# %%
-dataset = textattack_run.datasets.dataset.Dataset(jigsaw_data)
+# Apply tokenization
+dataset = dataset.map(tokenize_data, batched=True)
+dataset = dataset.rename_column("ground_truth_output", "labels")  # Rename for consistency
+dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
 
-# %%
-attack = textattack_run.attack_recipes.deepwordbug_gao_2018.DeepWordBugGao2018.build(model_wrapper)
 
-# %%
-attack_args = textattack_run.AttackArgs(num_examples=1990, log_to_csv="log.csv", disable_stdout=True)
-attacker = textattack_run.Attacker(attack, dataset, attack_args)
-attacker.attack_dataset()
+# Custom PyTorch Dataset wrapper
+class JigsawDataset(Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
 
-# %%
-jigsaw_aug = pd.read_csv('log.csv')
+    def __len__(self):
+        return len(self.dataset)
 
-# %%
-jigsaw_aug.drop(jigsaw_aug.columns.difference(["perturbed_text", "ground_truth_output"]), axis=1).to_csv('jigsaw_perturbed.csv', index=False)
+    def __getitem__(self, idx):
+        return {key: self.dataset[idx][key] for key in ["input_ids", "labels"]}
 
-# %%
+# Create PyTorch DataLoaders
+batch_size = 64
+val_dataloader = DataLoader(JigsawDataset(dataset["train"]), batch_size=batch_size, shuffle=True)
+# val_dataloader = DataLoader(JigsawDataset(dataset["test"]), batch_size=batch_size, shuffle=False)
+
+
+device = "cuda:6" if torch.cuda.is_available() else "cpu"
+
 class BERTClassifier(nn.Module):
     def __init__(self, transformer, num_classes=2):
         super().__init__()
@@ -110,75 +101,73 @@ class BERTClassifier(nn.Module):
             logits = self.classifier(hidden_states[:, -1, :])
         return logits
 
-# %%
-dataset = load_dataset("csv", data_files={'jigsaw_perturbed.csv'})
-# dataset = load_dataset('csv', data_files={'test': 'toxigen_alice.csv'})
 
-tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-print(tokenizer.pad_token)
+# # Initialize model and optimizer
+# num_classes = 2
+# model = HookedEncoder.from_pretrained("bert-base-uncased", device=device)
+# # model.load_state_dict(torch.load("finetuned_gpt2/transformer.pth", map_location=device))
+# model.to(device)
+# classifier = BERTClassifier(model, num_classes)
+# # classifier.load_state_dict(torch.load("finetuned_gpt2/classifier.pth", map_location=device))
+# classifier.to(device)
 
-# Tokenization function
-def tokenize_data(example):
-    return tokenizer(example["perturbed_text"], padding="max_length", truncation=True, max_length=128, return_tensors="pt")
+# criterion = nn.CrossEntropyLoss()
+# optimizer = optim.Adam(classifier.parameters(), lr=5e-5)
 
-# Apply tokenization
-dataset = dataset.map(tokenize_data, batched=True)
-dataset = dataset.rename_column("ground_truth_output", "labels")  # Rename for consistency
-dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
+# # Training loop
+# num_epochs = 10
+# best_epoch = -1
+# best_loss = 100
 
-# %%
-class JigsawDataset(Dataset):
-    def __init__(self, dataset):
-        self.dataset = dataset
+# for epoch in range(num_epochs):
+#     print(f"Epoch {epoch+1}")
+#     classifier.train()
+#     total_train_loss = 0
+#     total_val_loss = 0
+#     correct_preds = 0
 
-    def __len__(self):
-        return len(self.dataset)
+#     for batch in tqdm(train_dataloader):
+#         input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
 
-    def __getitem__(self, idx):
-        return {key: self.dataset[idx][key] for key in ["input_ids", "labels"]}
+#         optimizer.zero_grad()
+#         logits = classifier(input_ids)
+#         loss = criterion(logits, labels)
+#         loss.backward()
+#         optimizer.step()
 
-# Create PyTorch DataLoaders
-batch_size = 64
-val_dataloader = DataLoader(JigsawDataset(dataset['train']), batch_size=batch_size, shuffle=False)
+#         total_train_loss += loss.item()
+#     classifier.eval()
+#     for batch in val_dataloader:
+#         input_ids, labels = batch["input_ids"].to(device), batch["labels"].to(device)
 
-# %%
-class BERTClassifier(nn.Module):    
-    def __init__(self, transformer, num_classes=2):
-        super().__init__()
-        self.transformer = transformer
-        self.classifier = nn.Linear(transformer.cfg.d_model, num_classes)  # d_model = 768
+#         logits = classifier(input_ids)
+#         loss = criterion(logits, labels)
 
-    def forward(self, input_ids):
-        _, cache = self.transformer.run_with_cache(input_ids)  # Get cache
+#         total_val_loss += loss.item()
+#         correct_preds += sum(logits.argmax(dim=1) == labels).item()
 
-        # Extract final hidden states from residual stream
-        hidden_states = cache["resid_post", -1]  # Shape: [batch, seq_len, hidden_dim]
-
-        # Use last token’s hidden state for classification
-        logits = self.classifier(hidden_states[:, -1, :])  # Shape: [batch, num_classes]
-        return logits
-
-    def run_with_hooks(self, tokens, fwd_hooks):
-        with torch.no_grad():
-            with self.transformer.hooks(fwd_hooks=fwd_hooks):
-                _, cache = self.transformer.run_with_cache(tokens)
-            hidden_states = cache["resid_post", -1] 
-            logits = self.classifier(hidden_states[:, -1, :])
-        return logits
+#     avg_train_loss = total_train_loss / len(train_dataloader)
+#     avg_val_loss = total_val_loss / len(train_dataloader)
+#     print(f"Epoch {epoch+1}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss}")
+#     save_dir = "finetuned_bert/jigsaw"
+#     if avg_val_loss < best_loss:
+#         best_loss = avg_val_loss
+#         best_epoch = epoch
+#         torch.save(classifier.state_dict(), os.path.join(save_dir, f"classifier.pth"))
+#         torch.save(model.state_dict(), os.path.join(save_dir, f"transformer.pth"))
 
 
 # Initialize model and optimizer
 num_classes = 2
 model = HookedEncoder.from_pretrained("bert-base-uncased", device=device)
-# model.load_state_dict(torch.load("finetuned_gpt2/transformer.pth", map_location=device))
+model.load_state_dict(torch.load("checkpoints/finetuned_bert/jigsaw/transformer.pth", map_location=device))
 model.to(device)
 classifier = BERTClassifier(model, num_classes)
-# classifier.load_state_dict(torch.load("finetuned_gpt2/classifier.pth", map_location=device))
+classifier.load_state_dict(torch.load("checkpoints/finetuned_bert/jigsaw/classifier.pth", map_location=device))
 classifier.to(device)
 
 criterion = nn.CrossEntropyLoss()
 
-# %%
 def get_log_probs(
     logits: Float[Tensor, "batch posn d_vocab"], tokens: Int[Tensor, "batch posn"]
 ) -> Float[Tensor, "batch posn-1"]:
@@ -231,8 +220,6 @@ def get_ablation_scores(
 
     return ablation_scores, preds, ablated_pred_list
 
-
-# %%
 print('patching')
 ablation_scores = torch.zeros(12,12, device=device)
 base_preds = []
@@ -245,12 +232,12 @@ for i, batch in tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
         for head in range(classifier.transformer.cfg.n_heads):
             ablated_preds[layer][head] += ablated_pred_list[layer][head].tolist()
     ablation_scores += tmp_ablation_scores
-    if i % 16 == 0:
-        torch.save(ablation_scores / ((i+1) * batch_size), "deepword/bert_ablation_scores_jigsaw_perturbed.pth")
-with open('deepword/bert_ablated_preds_jigsaw_perturbed.json', 'w') as f:
-    json.dump(ablated_preds, f)
-with open('deepword/bert_base_preds_jigsaw_perturbed.json', 'w') as f:
-    json.dump(base_preds, f)
+    if i % 16 == 0 or i == len(val_dataloader) - 1:
+        torch.save(ablation_scores / ((i+1) * batch_size), "bert_ablation_scores_jigsaw.pth")
+        with open('bert_ablated_preds_jigsaw.json', 'w') as f:
+            json.dump(ablated_preds, f)
+        with open('bert_base_preds_jigsaw.json', 'w') as f:
+            json.dump(base_preds, f)
 
-ablation_scores /= len(val_dataloader)
-torch.save(ablation_scores, "deepword/bert_ablation_scores_jigsaw_perturbed.pth")
+ablation_scores /= len(dataset)
+torch.save(ablation_scores, "bert_ablation_scores_jigsaw.pth")

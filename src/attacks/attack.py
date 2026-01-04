@@ -150,19 +150,11 @@ def main():
             print(f"Device {i}: {torch.cuda.get_device_name(i)}")
 
     ## Attack
-<<<<<<< HEAD
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
     model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_2_acc_0.9236.pt', map_location=device))
     model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
-    df = pd.read_csv('jigsaw/test_clean.csv')
-=======
-    # tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-    # model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
-    # model.load_state_dict(torch.load('bert_classifier_vanilla/model_epoch_1_acc_0.9372.pt', map_location=device))
-    # model_wrapper = textattack.models.wrappers.HuggingFaceModelWrapper(model, tokenizer)
-    # df = pd.read_csv('jigsaw/test.csv')
->>>>>>> origin/local
+    df = pd.read_csv('data/raw/jigsaw/test_clean.csv')
     # df.comment_text = df.comment_text.str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
     # df.comment_text = df.comment_text.str.strip()
     # drop_indices = []
@@ -173,30 +165,20 @@ def main():
     #     except:
     #         drop_indices.append(i)
     # df = df.drop(drop_indices).reset_index(drop=True)
-<<<<<<< HEAD
-    # df.to_csv('jigsaw/test_clean.csv', index=False)
+    # df.to_csv('data/raw/jigsaw/test_clean.csv', index=False)
     jigsaw_data = list(zip(df['comment_text'], df['toxic']))
     dataset = textattack.datasets.dataset.Dataset(jigsaw_data)
-=======
-
-    # jigsaw_data = list(zip(df['comment_text'], df['toxic']))
-    # dataset = textattack.datasets.dataset.Dataset(jigsaw_data)
->>>>>>> origin/local
 
     # Get the specified attack
     attack = get_attack(model_wrapper, args.attack_name)
     attack_args = textattack.AttackArgs(
         num_examples=50000, 
-        log_to_csv=f"{args.attack_name}_log.csv", 
+        log_to_csv=f"logs/{args.attack_name}_log.csv", 
         disable_stdout=True, 
         parallel=True,
         checkpoint_dir="checkpoints", 
         checkpoint_interval=1000, 
         shuffle=True,
-<<<<<<< HEAD
-        # query_budget=100,
-=======
->>>>>>> origin/local
     )
     attacker = textattack.Attacker(attack, dataset, attack_args)
     attacker.attack_dataset()
@@ -258,10 +240,10 @@ def main():
     # Initialize model and optimizer
     num_classes = 2
     model = HookedEncoder.from_pretrained("bert-base-uncased", device=device)
-    model.load_state_dict(torch.load("finetuned_bert/jigsaw/transformer.pth", map_location=device))
+    model.load_state_dict(torch.load("checkpoints/finetuned_bert/jigsaw/transformer.pth", map_location=device))
     model.to(device)
     classifier = BERTClassifier(model, num_classes)
-    classifier.load_state_dict(torch.load("finetuned_bert/jigsaw/classifier.pth", map_location=device))
+    classifier.load_state_dict(torch.load("checkpoints/finetuned_bert/jigsaw/classifier.pth", map_location=device))
     classifier.to(device)
 
     criterion = nn.CrossEntropyLoss()
